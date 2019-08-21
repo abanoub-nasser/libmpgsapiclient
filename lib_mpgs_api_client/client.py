@@ -32,7 +32,7 @@ class MPGSClient(PaymentClient):
     # 3DS APIs
     #
     ##############################
-    def check_3ds_enrollment(self, _3ds_secure_id, callback, session_id):
+    def check_3ds_enrollment(self, _3ds_secure_id, callback, session_id, amount, currency):
         _3ds_secure_id = str(uuid.uuid4())
         callback = 'http://eac618e5.ngrok.io'
         path = '/api/rest/version/52/merchant/{}/3DSecureId/{}'.format(self.merchant_id, _3ds_secure_id)
