@@ -45,7 +45,8 @@ class MPGSClient(PaymentClient):
             'apiOperation': 'CHECK_3DS_ENROLLMENT',
             '3DSecure': {
                 'authenticationRedirect': {
-                    'responseUrl': callback
+                    'responseUrl': callback,
+                    'pageGenerationMode': 'CUSTOMIZED',
                 },
             },
             'order': {
@@ -55,6 +56,27 @@ class MPGSClient(PaymentClient):
             'session': {
                 'id': session_id,
             }
+        }
+        return self._request(path, method, data)
+
+    def check_3ds_enrollment_with_token(self, token, _3ds_secure_id, callback, amount, currency):
+        path = 'api/rest/version/52/merchant/{}/3DSecureId/{}'.format(self.merchant_id, _3ds_secure_id)
+        method = 'PUT'
+        data = {
+            'apiOperation': 'CHECK_3DS_ENROLLMENT',
+            '3DSecure': {
+                'authenticationRedirect': {
+                    'responseUrl': callback,
+                    'pageGenerationMode': 'CUSTOMIZED',
+                },
+            },
+            'order': {
+                'amount': amount,
+                'currency': currency,
+            },
+            'sourceOfFunds': {
+                'token': token,
+            },
         }
         return self._request(path, method, data)
 
@@ -93,7 +115,28 @@ class MPGSClient(PaymentClient):
         data = {}
         return self._request(path, method, data)
 
-    def update_session(self, session_id, card_number, expiry_month, expiry_year, security_code):
+    def update_session(self, session_id, card_number, expiry_month, expiry_year, security_code, name):
+        path = 'api/rest/version/52/merchant/{}/session/{}'.format(self.merchant_id, session_id)
+        method = 'PUT'
+        data = {
+            'sourceOfFunds': {
+                'type': 'CARD',
+                'provided': {
+                    'card': {
+                        'nameOnCard': name,
+                        'number': card_number,
+                        'securityCode': security_code,
+                        'expiry': {
+                            'month': expiry_month,
+                            'year': expiry_year,
+                        }
+                    }
+                }
+            }
+        }
+        return self._request(path, method, data)
+
+    def update_session_without_cvv(self, session_id, card_number, expiry_month, expiry_year):
         path = 'api/rest/version/52/merchant/{}/session/{}'.format(self.merchant_id, session_id)
         method = 'PUT'
         data = {
@@ -102,7 +145,6 @@ class MPGSClient(PaymentClient):
                 'provided': {
                     'card': {
                         'number': card_number,
-                        'securityCode': security_code,
                         'expiry': {
                             'month': expiry_month,
                             'year': expiry_year,
@@ -173,6 +215,41 @@ class MPGSClient(PaymentClient):
         }
         return self._request(path, method, data)
 
+    def authorize_with_3ds(self, _3ds_secure_id, order_id, transaction_id, amount, currency):
+        path = 'api/rest/version/52/merchant/{}/order/{}/transaction/{}'.format(self.merchant_id, order_id, transaction_id)
+        method = 'PUT'
+        data = {
+            'apiOperation': 'AUTHORIZE',
+            'order': {
+                'currency': currency,
+                'amount': amount,
+            },
+            '3DSecureId': _3ds_secure_id,
+            'sourceOfFunds': {
+               'provided': {
+                   'card': {
+                       'nameOnCard': 'xx',
+                       'number': '512345xxxxxx0008',
+                   },
+               },
+               'type': 'CARD',
+            },
+            # 'sourceOfFunds': {
+            #     'provided': {
+            #         'card': {
+            #             'expiry': {
+            #                 'month': 5,
+            #                 'year': 21,
+            #             },
+            #             'nameOnCard': 'xx',
+            #             'number': '5123450000000008',
+            #         },
+            #     },
+            #     'type': 'CARD',
+            # },
+        }
+        return self._request(path, method, data)
+
     def inquiry_balance(self):
         pass
 
@@ -196,10 +273,66 @@ class MPGSClient(PaymentClient):
             'order': {
                 'currency': currency,
                 'amount': amount,
+                'reference': str(uuid.uuid4()),
             },
             'session': {
                 'id': session_id,
             },
+            'transaction': {
+                'reference': str(uuid.uuid4()),
+            }
+        }
+        return self._request(path, method, data)
+
+    def pay_with_token(self, order_id, transaction_id, amount, currency, token):
+        path = 'api/rest/version/52/merchant/{}/order/{}/transaction/{}'.format(self.merchant_id, order_id, transaction_id)
+        method = 'PUT'
+        data = {
+            'apiOperation': 'PAY',
+            'order': {
+                'currency': currency,
+                'amount': amount,
+                'reference': str(uuid.uuid4()),
+            },
+            'transaction': {
+               'reference': str(uuid.uuid4()),
+            },
+            'sourceOfFunds': {
+                'token': token,
+            },
+        }
+        return self._request(path, method, data)
+
+    def pay_with_3ds(self, _3ds_id, order_id, transaction_id, amount, currency, token):
+        path = 'api/rest/version/52/merchant/{}/order/{}/transaction/{}'.format(self.merchant_id, order_id, transaction_id)
+        method = 'PUT'
+        data = {
+            'apiOperation': 'PAY',
+            'order': {
+                'currency': currency,
+                'amount': amount,
+                'reference': str(uuid.uuid4()),
+            },
+            'transaction': {
+               'reference': str(uuid.uuid4()),
+            },
+            '3DSecureId': _3ds_id,
+            'sourceOfFunds': {
+                'token': token,
+            },
+            # 'sourceOfFunds': {
+            #     'provided': {
+            #         'card': {
+            #             'expiry': {
+            #                 'month': 5,
+            #                 'year': 21,
+            #             },
+            #             'nameOnCard': 'xx',
+            #             'number': '5123450000000008',
+            #         },
+            #     },
+            #     'type': 'CARD',
+            # },
         }
         return self._request(path, method, data)
 
@@ -214,6 +347,7 @@ class MPGSClient(PaymentClient):
             'transaction': {
                 'currency': currency,
                 'amount': amount,
+                'reference': transaction_id,
             },
         }
         return self._request(path, method, data)
@@ -233,16 +367,41 @@ class MPGSClient(PaymentClient):
     def update_authorization(self):
         pass
 
-    def verify(self):
-        pass
+    def verify(self, order_id, transaction_id, card_number, security_code, expiry_month, expiry_year):
+        path = 'api/rest/version/52/merchant/{}/order/{}/transaction/{}'.format(self.merchant_id, order_id, transaction_id)
+        method = 'PUT'
+        data = {
+            'apiOperation': 'VERIFY',
+            'order': {
+                'currency': 'SGD',
+            },
+            'sourceOfFunds': {
+                'type': 'CARD',
+                'provided': {
+                    'card': {
+                        'number': card_number,
+                        'securityCode': security_code,
+                        'expiry': {
+                            'month': expiry_month,
+                            'year': expiry_year,
+                        }
+                    }
+                }
+            }
+        }
+        return self._request(path, method, data)
 
-    def void(self, order_id, transaction_id, target_transaction_id):
+    def void(self, order_id, transaction_id, target_transaction_id, amount):
         path = 'api/rest/version/52/merchant/{}/order/{}/transaction/{}'.format(self.merchant_id, order_id, transaction_id)
         method = 'PUT'
         data = {
             'apiOperation': 'VOID',
             'transaction': {
                 'targetTransactionId': target_transaction_id,
+                'reference': transaction_id,
+            },
+            'order': {
+                'amount': amount,
             },
         }
         return self._request(path, method, data)
